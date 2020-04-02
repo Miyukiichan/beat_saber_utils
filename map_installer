@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# This is a script for installing Beat Saber song maps.
+# It assumes that the obtained song information is in a zip file and that the info.dat file is present. 
+# This is based on the format of downloaded maps from "https://bsaber.com/". 
+# Takes a zip file as an argument, extracts it to a subdirectory and names the directory according to the 
+# information found in the info datafile extracted. It then copies the directory to the Beat Saber custom map 
+# directory specified at the top of this script (for the convenience of changing it).
+
+get_metadata() {
+	grep "$1" $info | cut -f2 -d \: | sed 's/\s*\"//g;s/\,//g'
+}
+
+beat_saber_path="/mnt/c/Program Files (x86)/Steam/steamapps/common/Beat Saber/"
+beat_saber_path="$beat_saber_path/Beat Saber_Data/CustomLevels"
+
+#Check args
+path="$1"
+[ -z "$path" ] && echo "No Path Provided" && exit
+[ ! -f "$path" ] && echo "Path does not exist" &&  exit
+[ "${path##*.}" != "zip" ] && echo "Not a zip file" && exit
+
+#Extract to folder with the same name as the zip file
+base=$(basename "$path" | cut -d \. -f1)
+dir=$(echo "$path" | cut -d \. -f1)
+[ -f "$dir" ] && rm -r "$dir"
+unzip -q "$path" -d "$dir"
+
+# Name the extracted folder in the format "Artist - Songname" if there is no artist found in the metadata, the map creator name is used
+info="$dir/info.dat"
+song="$(get_metadata _songName)"
+artist="$(get_metadata _songAuthorName)"
+[ -z "$artist" ] && artist="$(get_metadata _levelAuthorName)"
+[ -n "$artist" ] && artist="$artist - "
+dirname="$artist$song"
+[ -z "$dirname" ] && echo "No artist or song data" && exit
+
+#Rename the extracted diretory using the metadata and copy it to the Beat Saber install location
+newdir=$(echo $dir | sed "s/$base/$artist$song/")
+[ -f "$newdir" ] && rm -r "$newdir"
+mv "$dir" "$newdir"
+cp -r "$newdir" "$beat_saber_path"
